@@ -42,7 +42,7 @@ app.use('/upload', uploadRouter);
 app.use('/download', downloadRouter);
 app.use('/atenciones', atencionesRouter);
 
-const CONNECTION_URL = 'mongodb://localhost:27017/turnos_app';
+const CONNECTION_URL = 'mongodb+srv://wcasarino:MamiKa0503@cluster0.c1snyt4.mongodb.net/turnos_app?retryWrites=true&w=majority';
 const PORT = process.env.PORT || 5001;
 
 mongoose.connect(CONNECTION_URL, { useNewUrlParser: true, useUnifiedTopology: true })

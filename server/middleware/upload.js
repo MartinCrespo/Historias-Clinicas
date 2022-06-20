@@ -31,17 +31,11 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  /*
-  if ((file.mimetype).includes('jpeg') || (file.mimetype).includes('png') || (file.mimetype).includes('jpg')) {
-    cb(null, true);
-  } else {
-    cb(null, false);
-  }
-  */
   cb(null, true);
 };
 
-let upload = multer({ storage: storage, fileFilter: fileFilter, });
+
+let upload = multer({ storage: storage, fileFilter: fileFilter, limits: { files: 10, fieldSize: 30 * 1024 * 1024 } });
 
 //export default upload.single('myFile')
 export default upload.array('myFile')

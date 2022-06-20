@@ -8,10 +8,10 @@ import DownloadIcon from "@mui/icons-material/Download";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
 import moment from "moment";
-import axios from "axios";
 import swal from "sweetalert";
 
-//import useFileDownloader from "../../hooks/useFileDownloader";
+import useFileDownloader from "../../hooks/useFileDownloader";
+import useFileUploader from "../../hooks/useFileUploader";
 
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -28,15 +28,12 @@ import {
   DeleteAtencion,
   DeleteFileAtencion,
 } from "../../actions/pacientes";
-import { getFileDownload } from "../../actions/download";
 
 import { Box } from "@mui/system";
 
 const AtencionSection = () => {
   const { paciente } = useSelector((state) => state.pacientes);
   const user = JSON.parse(localStorage.getItem("profile"));
-
-  //const { fileDownload } = useSelector((state) => state.fileDownload);
 
   const fechaToString = () => {
     let anoAte = 0;
@@ -84,17 +81,11 @@ const AtencionSection = () => {
   const [btnAte, setBtnAte] = useState(false);
   const [viewAteId, setViewAteId] = useState(0);
 
-  /*
   const [downloadFile, downloaderComponentUI] = useFileDownloader();
-  
   const download = (file) => downloadFile(file);
-  const [fileDwn, setFileDwn] = useState({
-    name: "",
-    thumb: "",
-    file: "",
-    filename: "",
-  });
-  */
+
+  const [uploadFile, uploaderComponentUI] = useFileUploader();
+  const upload = (file) => uploadFile(file);
 
   useEffect(() => {
     if (paciente) {
@@ -160,7 +151,6 @@ const AtencionSection = () => {
   };
 
   const handleClick = async (e) => {
-    console.log(archivos);
     if (atencionId === 0) {
       const newAtenciones = await dispatch(AddAtencion(atencion, id));
       setAtenciones(newAtenciones);
@@ -172,31 +162,16 @@ const AtencionSection = () => {
         for (let index = 0; index < archivos.length; index++) {
           data.append("myFile", archivos[index]);
         }
-        axios
-          .post(
-            `http://localhost:5001/upload/${id}/UpdateSelectedFilesAtencion`,
-            data
-          )
-          .then((res) => {
-            const newAtenciones2 = res.data.atenciones;
-
-            /*
-            let newAte = {};
-            res.data.atenciones.forEach((ate) => {
-              if (ate._id === newAtenciones[0]._id) {
-                newAte = ate;
-              }
-            });
-            
-            if (newAte) {
-              const newSelectedFiles = newAte.selectedFiles;
-              setAtencion({ ...atencion, selectedFiles: newSelectedFiles });
-            }
-            */
-
-            setAtenciones(newAtenciones2);
-          })
-          .catch((err) => console.log(err));
+        await upload({
+          idPaciente: id,
+          IdAtencion: newAtenciones[0]._id,
+          data,
+          setAtenciones,
+          setAtencion,
+          atencion,
+          viejaAte: false,
+          cantArch: archivos.length,
+        });
       }
       setBtnAte(false);
       clear();
@@ -222,28 +197,16 @@ const AtencionSection = () => {
         for (let index = 0; index < archivos.length; index++) {
           data.append("myFile", archivos[index]);
         }
-        axios
-          .post(
-            `http://localhost:5001/upload/${id}/UpdateSelectedFilesAtencion`,
-            data
-          )
-          .then((res) => {
-            const newAtenciones2 = res.data.atenciones;
-
-            let newAte = {};
-            res.data.atenciones.forEach((ate) => {
-              if (ate._id === atencionId) {
-                newAte = ate;
-              }
-            });
-            if (newAte) {
-              const newSelectedFiles = newAte.selectedFiles;
-              setAtencion({ ...atencion, selectedFiles: newSelectedFiles });
-            }
-
-            setAtenciones(newAtenciones2);
-          })
-          .catch((err) => console.log(err));
+        await upload({
+          idPaciente: id,
+          IdAtencion: atencionId,
+          data,
+          setAtenciones,
+          setAtencion,
+          atencion,
+          viejaAte: true,
+          cantArch: archivos.length,
+        });
       }
       setBtnAte(true);
     }
@@ -323,14 +286,40 @@ const AtencionSection = () => {
   };
 
   const subirArchivos = (e) => {
-    console.log(e.target.files);
-    console.log(e.target.files[0]);
+    const cantArchivos = atencion?.selectedFiles?.length || 0;
+    if (cantArchivos + e.target.files.length > 10) {
+      swal({
+        title: "Subir Archivos",
+        text: "La atención no puede tener más de 10 archivos",
+        icon: "error",
+        timer: "5000",
+      });
+      setArchivos(null);
+      document.getElementById("inputFile").value = "";
+      return null;
+    }
+    const maxSizeFile = 30 * 1024 * 1024;
+    let accSizeFile = 0;
+    for (let index = 0; index < e.target.files.length; index++) {
+      accSizeFile += e.target.files[index].size;
+    }
+    if (accSizeFile > maxSizeFile) {
+      swal({
+        title: "Subir Archivos",
+        text: "El tamaño de los archivos no puede superar los 30Mb",
+        icon: "error",
+        timer: "5000",
+      });
+      setArchivos(null);
+      document.getElementById("inputFile").value = "";
+      return null;
+    }
     setArchivos(e.target.files);
     setBtnGrabar(false);
     setBtnAte(true);
   };
 
-  const handleDeleteFile = async (file) => {
+  const handleDeleteFile = async (file, IdAtencion) => {
     const respuesta = await swal({
       title: "Eliminar Archivo",
       text: "Estas seguro que desea eliminar este archivo?",
@@ -339,7 +328,7 @@ const AtencionSection = () => {
     });
     if (respuesta) {
       const newAtenciones = await dispatch(
-        DeleteFileAtencion({ _id: atencionId, selectedFile: file }, id)
+        DeleteFileAtencion({ _id: IdAtencion, selectedFile: file }, id)
       );
       //Borro file de atencion
       const newSelectedFiles = atencion.selectedFiles.filter(
@@ -357,75 +346,14 @@ const AtencionSection = () => {
     }
   };
 
-  const handleDeleteFile1 = async (file) => {
-    const respuesta = await swal({
-      title: "Eliminar Archivo",
-      text: "Estas seguro que desea eliminar este archivo?",
-      icon: "warning",
-      buttons: ["No", "Si"],
-    });
-    if (respuesta) {
-      const newAtenciones = await dispatch(
-        DeleteFileAtencion({ _id: viewAteId, selectedFile: file }, id)
-      );
-      //Borro file de atencion
-      const newSelectedFiles = atencion.selectedFiles.filter(
-        (filev) => filev !== file
-      );
-      setAtencion({ ...atencion, selectedFiles: newSelectedFiles });
-      setAtenciones(newAtenciones);
-
-      swal({
-        title: "Eliminar Archivo",
-        text: "el archivo fue eliminado con éxito",
-        icon: "success",
-        timer: "2000",
-      });
-    }
-  };
-
-  const handleDowloadFile = async (file) => {
+  const handleDowloadFile = async (file, IdAtencion) => {
     const filename = file.substr(15, file.length - 15);
-    const respuesta = await dispatch(getFileDownload(id, atencionId, file));
-    if (respuesta.data.type === "application/json") {
-      return null;
-    }
-    const url = window.URL.createObjectURL(
-      new Blob([respuesta.data], {
-        type: respuesta.headers["content-type"],
-      })
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-  };
-
-  const handleDowloadFile1 = async (file) => {
-    const filename = file.substr(15, file.length - 15);
-    const respuesta = await dispatch(getFileDownload(id, viewAteId, file));
-    if (respuesta.data.type === "application/json") {
-      return null;
-    }
-    const url = window.URL.createObjectURL(
-      new Blob([respuesta.data], {
-        type: respuesta.headers["content-type"],
-      })
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    /*
     download({
-      name: file.substr(15, file.length - 15),
-      thumb: "",
-      file: `http://localhost:5001/uploads/${id}/${viewAteId}/${file}`,
-      filename: file.substr(15, file.length - 15),
+      name: filename,
+      idPaciente: id,
+      IdAtencion,
+      file,
     });
-    */
   };
 
   return (
@@ -486,7 +414,9 @@ const AtencionSection = () => {
                                   variant="contained"
                                   size="small"
                                   color="primary"
-                                  onClick={() => handleDowloadFile1(f)}
+                                  onClick={() =>
+                                    handleDowloadFile(f, viewAteId)
+                                  }
                                 >
                                   <DownloadIcon fontSize="small" />
                                 </Button>
@@ -496,7 +426,7 @@ const AtencionSection = () => {
                                   variant="contained"
                                   size="small"
                                   color="secondary"
-                                  onClick={() => handleDeleteFile1(f)}
+                                  onClick={() => handleDeleteFile(f, viewAteId)}
                                 >
                                   <DeleteIcon fontSize="small" />
                                 </Button>
@@ -505,7 +435,7 @@ const AtencionSection = () => {
                           ))}
                         </TableBody>
                       </Table>
-                      {/* {downloaderComponentUI} */}
+                      {downloaderComponentUI}
                     </TableContainer>
                   )}
                   <Divider style={{ width: "100%", marginBottom: "20px" }} />
@@ -572,6 +502,7 @@ const AtencionSection = () => {
               name="MyFile"
               multiple
               onChange={(e) => subirArchivos(e)}
+              accept="video/*,image/*,.pdf,.xlsx,.docx"
             />
           </form>
 
@@ -643,6 +574,7 @@ const AtencionSection = () => {
             {atencionId ? "Volver" : "Limpiar"}
           </Button>
 
+          {uploaderComponentUI}
           <Divider style={{ width: "100%", marginBottom: "20px" }} />
           {atencion?.selectedFiles.length > 0 && (
             <TableContainer component={Paper}>
@@ -676,7 +608,7 @@ const AtencionSection = () => {
                           variant="contained"
                           size="small"
                           color="primary"
-                          onClick={() => handleDowloadFile(f)}
+                          onClick={() => handleDowloadFile(f, atencionId)}
                         >
                           <DownloadIcon fontSize="small" />
                         </Button>
@@ -686,7 +618,7 @@ const AtencionSection = () => {
                           variant="contained"
                           size="small"
                           color="secondary"
-                          onClick={() => handleDeleteFile(f)}
+                          onClick={() => handleDeleteFile(f, atencionId)}
                         >
                           <DeleteIcon fontSize="small" />
                         </Button>
@@ -695,7 +627,7 @@ const AtencionSection = () => {
                   ))}
                 </TableBody>
               </Table>
-              {/* {downloaderComponentUI} */}
+              {downloaderComponentUI}
             </TableContainer>
           )}
         </div>

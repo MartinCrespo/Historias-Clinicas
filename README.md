@@ -1,7 +1,5 @@
 # Sistema de registración de Historias Clínicas de Pacientes
 
-image.png
-
 ## Obejtivo
 
 Registrar en forma sencilla las atenciones médicas a lo pacientes, y poder almacenar datos de personales, médicos, obstetricos demás relativos a los pacientes.
